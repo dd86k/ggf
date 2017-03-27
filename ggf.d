@@ -22,7 +22,7 @@ enum
 
 void PrintHelp()
 {
-    writeln("Determine the file type by its content.");
+    writeln("Get disk information.");
     writeln("  Usage: ", PROJECT_NAME, " [-f] [-b]");
     writeln("         ", PROJECT_NAME, " {--help|--version|/?}");
 }
@@ -33,7 +33,7 @@ debug
     writeln(PROJECT_NAME, " ", PROJECT_VER, "-debug (", __TIMESTAMP__, ")");
 else
     writeln(PROJECT_NAME, " ", PROJECT_VER, " (", __TIMESTAMP__, ")");
-    writeln("MIT License: Copyright (c) 2016-2017 dd86k");
+    writeln("MIT License: Copyright (c) 2017 dd86k");
     writeln("Project page: <https://github.com/dd86k/", PROJECT_NAME, ">");
     writeln("Compiled ", __FILE__, " with ", __VENDOR__, " v", __VERSION__);
 }
