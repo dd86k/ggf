@@ -14,13 +14,11 @@ import core.sys.windows.windows;
 	-s : Serial, max component length
 */
 
-enum {
+enum
 	PROJECT_NAME = "ggf",
-	PROJECT_VER  = "0.0.0"
-}
-
-/// Character Pointer NULL constant
-enum PCNULL = cast(char*)0;
+	PROJECT_VER  = "0.0.0",
+	/// Character Pointer NULL constant
+	PCNULL = cast(char*)0;
 
 void PrintHelp()
 {
@@ -36,7 +34,7 @@ debug
 else
     writeln(PROJECT_NAME, " ", PROJECT_VER, " (", __TIMESTAMP__, ")");
     writeln("MIT License: Copyright (c) 2016-2017 dd86k");
-    writeln("Project page: <https://github.com/dd86k/dfile>");
+    writeln("Project page: <https://github.com/dd86k/", PROJECT_NAME, ">");
     writeln("Compiled ", __FILE__, " with ", __VENDOR__, " v", __VERSION__);
 }
 
@@ -44,7 +42,7 @@ void main(string[] args)
 {
 	bool base10, features;
 
-	foreach (arg; args)
+	foreach (arg; args[1 .. $])
 	{
 		switch (arg)
 		{
@@ -61,6 +59,7 @@ void main(string[] args)
 	SetErrorMode(SEM_FAILCRITICALERRORS); 
 	DWORD drives = GetLogicalDrives();
 
+	if (drives)
 	if (features)
 		writeln("DRIVE  SERIAL     MAX PATH  FEATURES");
 	else
@@ -132,7 +131,7 @@ void main(string[] args)
 			{
 				switch (GetDriveTypeA(cdp))
 				{ // Lazy alert
-					default:write("UNKNOWN  "); break; // 1+2
+					default:write("UNKNOWN  "); break; // 0+1
 					case 2: write("Removable"); break;
 					case 3: write("Fixed    "); break;
 					case 4: write("Network  "); break;
@@ -191,23 +190,31 @@ string formatsize(long size, bool b10 = false)
 	if (b10)
 	{
 		if (size > TiB)
-			if (size > 10 * TiB)
+			if (size > 100 * TiB)
 				return format("%d TiB", size / TiB);
+			else if (size > 10 * TiB)
+				return format("%0.1f TiB", s / TiB);
 			else
 				return format("%0.2f TiB", s / TiB);
 		else if (size > GiB)
-			if (size > 10 * GiB)
+			if (size > 100 * GiB)
 				return format("%d GiB", size / GiB);
+			else if (size > 10 * GiB)
+				return format("%0.1f GiB", s / GiB);
 			else
 				return format("%0.2f GiB", s / GiB);
 		else if (size > MiB)
-			if (size > 10 * MiB)
+			if (size > 100 * MiB)
 				return format("%d MiB", size / MiB);
+			else if (size > 10 * MiB)
+				return format("%0.1f MiB", s / MiB);
 			else
 				return format("%0.2f MiB", s / MiB);
 		else if (size > KiB)
-			if (size > 10 * KiB)
+			if (size > 100 * MiB)
 				return format("%d KiB", size / KiB);
+			else if (size > 10 * KiB)
+				return format("%0.1f KiB", s / KiB);
 			else
 				return format("%0.2f KiB", s / KiB);
 		else
@@ -216,23 +223,31 @@ string formatsize(long size, bool b10 = false)
 	else
 	{
 		if (size > TB)
-			if (size > 10 * TB)
+			if (size > 100 * TB)
 				return format("%d TB", size / TB);
+			else if (size > 10 * TB)
+				return format("%0.1f TB", s / TB);
 			else
 				return format("%0.2f TB", s / TB);
 		else if (size > GB)
-			if (size > 10 * GB)
+			if (size > 100 * GB)
 				return format("%d GB", size / GB);
+			else if (size > 10 * GB)
+				return format("%0.1f GB", s / GB);
 			else
 				return format("%0.2f GB", s / GB);
 		else if (size > MB)
-			if (size > 10 * MB)
+			if (size > 100 * MB)
 				return format("%d MB", size / MB);
+			else if (size > 10 * MB)
+				return format("%0.1f MB", s / MB);
 			else
 				return format("%0.2f MB", s / MB);
 		else if (size > KB)
-			if (size > 10 * KB)
+			if (size > 100 * KB)
 				return format("%d KB", size / KB);
+			else if (size > 10 * KB)
+				return format("%0.1f KB", s / KB);
 			else
 				return format("%0.2f KB", s / KB);
 		else
