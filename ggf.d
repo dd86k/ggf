@@ -1,5 +1,3 @@
-import std.stdio;
-import std.string : toStringz;
 import core.sys.windows.windows;
 import core.stdc.stdio;
 
@@ -15,16 +13,15 @@ import core.stdc.stdio;
 	-s : Serial, max component length
 */
 
-enum {
-	PROJECT_VER  = cast(char*)"0.0.1",
-	PCNULL = cast(char*)0	/// Character Pointer NULL constant
-}
+enum
+	PROJECT_VER  = "0.0.2",
+	PCNULL = cast(char*)0;	/// Character Pointer NULL constant
 
 extern (C)
 void help() {
     puts(
-`Get disk information.
-  Usage: ggf [OPTIONS]");
+`Get disk(s) information.
+  Usage: ggf [OPTIONS]
          ggf {--help|--version|/?}`
 	);
 }
@@ -32,21 +29,19 @@ void help() {
 extern (C)
 void version_() {
 	printf(
-`ggf v%s  (%s)
+		cast(char*) // Mostly constant string, only push __VERSION__
+(`ggf v`~PROJECT_VER~`  (`~__TIMESTAMP__~`)
 MIT License: Copyright (c) 2017-2018 dd86k
 Project page: <https://github.com/dd86k/ggf>
-Compiled %s with %s v%d
-`,
-		PROJECT_VER, cast(char*)__TIMESTAMP__,
-		cast(char*)__FILE__, cast(char*)__VENDOR__, __VERSION__
-	);
+Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n"),
+		__VERSION__);
 }
 
-__gshared bool base10;
+__gshared bool base10; /// Use base10 notation
 
 extern (C)
-int main(int argc, char** argv) {
-	bool features;
+private int main(int argc, char** argv) {
+	__gshared bool features;
 
 	while (--argc >= 1) {
 		if (argv[argc][0] == '-') {
@@ -58,7 +53,7 @@ int main(int argc, char** argv) {
 				case 'f': features = 1; break;
 				case 'b': base10 = 1; break;
 				default:
-					printf("Unknown parameter: %c\n", *a);
+					printf("ERROR: Unknown parameter: %c\n", *a);
 					return 1;
 				}
 			}
@@ -74,11 +69,14 @@ int main(int argc, char** argv) {
 			puts("DRIVE  SERIAL     MAX PATH  FEATURES");
 		else
 			puts("DRIVE  TYPE           USED      FREE     TOTAL  TYPE    NAME");
+	} else {
+		puts("ERROR: No drives found.");
+		return 2;
 	}
 
-	char[3] cdp = ` :\`; /// buffer
+	__gshared char[3] cdp = ` :\`; /// buffer
 	for (uint d = 1; d <= drives; d <<= 1) {
-		uint n = drives & d;
+		const uint n = drives & d;
 		if (n) {
 			const char cd = getDrive(n);
 			printf("%c:     ", cd);
@@ -86,10 +84,11 @@ int main(int argc, char** argv) {
 
 			if (features) {
 				DWORD serial, maxcomp, flags;
-				if (GetVolumeInformationA(cast(char*)cdp, PCNULL, 0,
-					&serial, &maxcomp, &flags, PCNULL, 0)) {
+				if (GetVolumeInformationA(
+						cast(char*)cdp, PCNULL, 0,
+						&serial, &maxcomp, &flags, PCNULL, 0)) {
 					ushort* sp = cast(ushort*)&serial;
-					printf("%04X-%04X  %8d  ", sp[1], sp[0], maxcomp);
+					printf("%04X-%04X  %8d  ", *(sp + 1), *sp, maxcomp);
 
 					if (flags & FILE_CASE_SENSITIVE_SEARCH)
 						printf(", CASE_SENSITIVE_SEARCH");
@@ -144,7 +143,7 @@ int main(int argc, char** argv) {
 				case 6:  printf("RAM      "); break;
 				}
 
-				ULARGE_INTEGER fb, tb, tfb;
+				__gshared ULARGE_INTEGER fb, tb, tfb;
 				if (GetDiskFreeSpaceExA(cast(char*)cdp, &fb, &tb, &tfb)) {
 					_printfd(tb.QuadPart - tfb.QuadPart);
 					_printfd(tfb.QuadPart);
@@ -152,20 +151,21 @@ int main(int argc, char** argv) {
 				}
 
 				char[128] vol, fs;
-				if (GetVolumeInformationA(cast(char*)cdp, cast(char*)vol, vol.length,
-					NULL, NULL, NULL, cast(char*)fs, fs.length)) {
+				if (GetVolumeInformationA(
+						cast(char*)cdp, cast(char*)vol, vol.sizeof,
+						NULL, NULL, NULL, cast(char*)fs, fs.sizeof)) {
 					printf("  %-7s %s", cast(char*)fs, cast(char*)vol);
 				}
 			}
 
 			puts("");
-		}
+		} // if (n)
 	}
 
 	return 0;
 }
 
-enum : float {
+enum : float { // for _printfd function
 	KB = 1024,
 	MB = KB * 1024,
 	GB = MB * 1024,
@@ -177,10 +177,9 @@ enum : float {
 }
 
 extern (C)
-void _printfd(ulong l) {
-	float f = l;
-	// Lazy code, sorry
-	if (base10) { // ya ya idc
+private void _printfd(ulong l) { // LAZY CODE (with spacing!)
+	const float f = l; // like those implicit conversions?
+	if (base10) {
 		if (l >= TiB) {
 			printf("%8.2fTi", f / TiB);
 		} else if (l >= GiB) {
@@ -205,6 +204,11 @@ void _printfd(ulong l) {
 	}
 }
 
+/**
+ * Cheapest way to get a drive letter by computed mask
+ * Params: mask = Drive mask (Windows)
+ * Returns: Windows drive letter
+ */
 extern (C)
 char getDrive(uint mask) pure {
 	final switch (mask) {
