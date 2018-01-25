@@ -150,7 +150,7 @@ private int main(int argc, char** argv) {
 					_printfd(tb.QuadPart);
 				}
 
-				char[128] vol, fs;
+				ubyte[128] vol, fs;
 				if (GetVolumeInformationA(
 						cast(char*)cdp, cast(char*)vol, vol.sizeof,
 						NULL, NULL, NULL, cast(char*)fs, fs.sizeof)) {
