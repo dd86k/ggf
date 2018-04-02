@@ -1,8 +1,6 @@
 # ggf - Windows disk information tool
 
-This one is a "I like `df`. Hey, let's do something similar for Windows." case.
-
-Supports Windows XP whenever compiled with DMD.
+A lazily-written, df-like, Windows disk information tool.
 
 # Examples
 

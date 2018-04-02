@@ -29,19 +29,18 @@ void help() {
 extern (C)
 void version_() {
 	printf(
-		cast(char*) // Mostly constant string, only push __VERSION__
-(`ggf v`~PROJECT_VER~`  (`~__TIMESTAMP__~`)
+`ggf v` ~ PROJECT_VER~ `  (` ~ __TIMESTAMP__ ~ `)
 MIT License: Copyright (c) 2017-2018 dd86k
 Project page: <https://github.com/dd86k/ggf>
-Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n"),
+Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n",
 		__VERSION__);
 }
 
-__gshared bool base10; /// Use base10 notation
+__gshared byte base10; /// Use base10 notation
 
 extern (C)
 private int main(int argc, char** argv) {
-	__gshared bool features;
+	__gshared byte features;
 
 	while (--argc >= 1) {
 		if (argv[argc][0] == '-') {
@@ -60,7 +59,7 @@ private int main(int argc, char** argv) {
 		}
 	}
 
-	// FDDs/CDs in XP shows a windows when an error occurs
+	// Empty optical drives in XP shows a windows when an error occurs
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 	const DWORD drives = GetLogicalDrives;
 
@@ -75,7 +74,7 @@ private int main(int argc, char** argv) {
 	}
 
 	__gshared char[3] cdp = ` :\`; /// buffer
-	for (uint d = 1; d <= drives; d <<= 1) {
+	for (__gshared uint d = 1; d <= drives; d <<= 1) {
 		const uint n = drives & d;
 		if (n) {
 			const char cd = getDrive(n);
@@ -150,7 +149,7 @@ private int main(int argc, char** argv) {
 					_printfd(tb.QuadPart);
 				}
 
-				ubyte[128] vol, fs;
+				ubyte[128] vol, fs; // or memset+__gshared
 				if (GetVolumeInformationA(
 						cast(char*)cdp, cast(char*)vol, vol.sizeof,
 						NULL, NULL, NULL, cast(char*)fs, fs.sizeof)) {
@@ -158,9 +157,9 @@ private int main(int argc, char** argv) {
 				}
 			}
 
-			puts("");
+			fputs("\n", stdout);
 		} // if (n)
-	}
+	} // for
 
 	return 0;
 }
@@ -176,8 +175,9 @@ enum : float { // for _printfd function
 	TiB = GiB * 1000,
 }
 
+// lazy formatter with spacing
 extern (C)
-private void _printfd(ulong l) { // LAZY CODE (with spacing!)
+private void _printfd(ulong l) {
 	const float f = l; // like those implicit conversions?
 	if (base10) {
 		if (l >= TiB) {
@@ -211,7 +211,7 @@ private void _printfd(ulong l) { // LAZY CODE (with spacing!)
  */
 extern (C)
 char getDrive(uint mask) pure {
-	final switch (mask) {
+	switch (mask) {
 	case 1: return 'A';
 	case 2: return 'B';
 	case 4: return 'C';
@@ -238,5 +238,6 @@ char getDrive(uint mask) pure {
 	case 8388608: return 'X';
 	case 16777216: return 'Y';
 	case 33554432: return 'Z';
+	default: return '?';
 	}
 }
