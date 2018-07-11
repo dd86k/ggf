@@ -26,7 +26,14 @@ void help() {
     puts(
 `Get disk(s) information.
   Usage: ggf [OPTIONS]
-         ggf {-h|-v|/?}`
+         ggf {-h|-v|/?}
+
+By default, view disk usage by size.
+
+OPTIONS
+-P	View usage by progress-bar style.
+-F	View features.
+-M	View misc. features (serial and maximum size of path)`
 	);
 }
 
