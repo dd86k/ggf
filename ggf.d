@@ -119,7 +119,7 @@ private int main(int argc, char** argv) {
 			if (GetVolumeInformationA(cast(char*)cdp, PCNULL, 0,
 				cast(uint*)&serial, &maxcomp, PINULL, PCNULL, 0)) {
 				printf("%04X-%04X  %8d  \n", serial[1], serial[0], maxcomp);
-			} else fputs("\n", stdout);
+			} else printf("\n");
 			break;
 		case FEATURE_FEATURES:
 			DWORD flags = void;
@@ -168,7 +168,7 @@ private int main(int argc, char** argv) {
 				if (flags & FILE_DAX_VOLUME) // Added in Windows 10
 					printf(", DAX");
 			}
-			fputs("\n", stdout);
+			printf("\n");
 			break;
 		case FEATURE_POURCENTAGE:
 			ubyte p_fb = void, p_tb = void;
