@@ -2,6 +2,8 @@
 
 A lazily-written, df-like, Windows disk information tool.
 
+For base 10 reports, use `-b`.
+
 # Examples
 
 ```
