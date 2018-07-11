@@ -1,5 +1,8 @@
 import core.sys.windows.windows;
-import core.stdc.stdio;
+import core.stdc.stdio : printf, puts, fputs, stdout;
+
+extern (C)
+int putchar(int c);
 
 /*
  * MSDN
@@ -14,15 +17,16 @@ import core.stdc.stdio;
 */
 
 enum
-	PROJECT_VER  = "0.0.2",
-	PCNULL = cast(char*)0;	/// Character Pointer NULL constant
+	PROJECT_VER  = "0.1.0",
+	PCNULL = cast(char*)0,	/// Character Pointer NULL constant
+	PINULL = cast(uint*)0;	/// Integer Pointer NULL constant
 
 extern (C)
 void help() {
     puts(
 `Get disk(s) information.
   Usage: ggf [OPTIONS]
-         ggf {--help|--version|/?}`
+         ggf {-h|-v|/?}`
 	);
 }
 
@@ -38,9 +42,23 @@ Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n",
 
 __gshared byte base10; /// Use base10 notation
 
+enum : ubyte {
+	FEATURE_DEFAULT, // sizes/usage
+	FEATURE_POURCENTAGE, // usage%
+	FEATURE_FEATURES, // features
+	FEATURE_MISC, // serial+max path
+}
+
+enum
+	FILE_SUPPORTS_EXTENDED_ATTRIBUTES = 0x00800000,
+	FILE_DAX_VOLUME = 0x20000000;
+
+enum
+	POURCENTAGE_INNER_WIDTH = 40;
+
 extern (C)
 private int main(int argc, char** argv) {
-	__gshared byte features;
+	ubyte feature; // FEATURE_DEFAULT
 
 	while (--argc >= 1) {
 		if (argv[argc][0] == '-') {
@@ -49,8 +67,10 @@ private int main(int argc, char** argv) {
 				switch (*a) {
 				case 'h': help; return 0;
 				case 'v': version_; return 0;
-				case 'f': features = 1; break;
-				case 'b': base10 = 1; break;
+				case 'b': ++base10; break;
+				case 'F': feature = FEATURE_FEATURES; break;
+				case 'P': feature = FEATURE_POURCENTAGE; break;
+				case 'M': feature = FEATURE_MISC; break;
 				default:
 					printf("ERROR: Unknown parameter: %c\n", *a);
 					return 1;
@@ -63,102 +83,133 @@ private int main(int argc, char** argv) {
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 	const DWORD drives = GetLogicalDrives;
 
-	if (drives) {
-		if (features)
-			puts("DRIVE  SERIAL     MAX PATH  FEATURES");
-		else
-			puts("DRIVE  TYPE           USED      FREE     TOTAL  TYPE    NAME");
-	} else {
+	if (drives == 0) {
 		puts("ERROR: No drives found.");
 		return 2;
 	}
 
-	__gshared char[3] cdp = ` :\`; /// buffer
-	for (__gshared uint d = 1; d <= drives; d <<= 1) {
+	switch (feature) {
+	case FEATURE_MISC:
+		puts("DRIVE  SERIAL     MAX PATH");
+		break;
+	case FEATURE_FEATURES:
+		puts("DRIVE  FEATURES");
+		break;
+	case FEATURE_POURCENTAGE:
+		puts("DRIVE  USAGE");
+		break;
+	default:
+		puts("DRIVE  TYPE           USED      FREE     TOTAL  TYPE    NAME");
+	}
+
+	char[3] cdp = ` :\`; /// buffer
+	for (uint d = 1; d <= drives; d <<= 1) {
 		const uint n = drives & d;
-		if (n) {
-			const char cd = getDrive(n);
-			printf("%c:     ", cd);
-			cdp[0] = cd;
 
-			if (features) {
-				DWORD serial, maxcomp, flags;
-				if (GetVolumeInformationA(
-						cast(char*)cdp, PCNULL, 0,
-						&serial, &maxcomp, &flags, PCNULL, 0)) {
-					ushort* sp = cast(ushort*)&serial;
-					printf("%04X-%04X  %8d  ", *(sp + 1), *sp, maxcomp);
+		if (n == 0) continue;
 
-					if (flags & FILE_CASE_SENSITIVE_SEARCH)
-						printf(", CASE_SENSITIVE_SEARCH");
-					if (flags & FILE_CASE_PRESERVED_NAMES)
-						printf(", CASE_PRESERVED_NAMES");
-					if (flags & FILE_PERSISTENT_ACLS)
-						printf(", PERSISTENT_ACLS");
-					if (flags & FILE_READ_ONLY_VOLUME)
-						printf(", READ_ONLY");
-					if (flags & FILE_NAMED_STREAMS)
-						printf(", NAMED_STREAMS");
-					if (flags & FILE_SEQUENTIAL_WRITE_ONCE)
-						printf(", SEQ_WRITE_ONCE");
-					if (flags & 0x00800000) // FILE_SUPPORTS_EXTENDED_ATTRIBUTES
-						printf(", EXTENDED_ATTRIBUTES");
-					if (flags & FILE_SUPPORTS_ENCRYPTION)
-						printf(", ENCRYPTION");
-					if (flags & 0x00400000) // FILE_SUPPORTS_HARD_LINKS
-						printf(", HARD_LINKS");
-					if (flags & FILE_SUPPORTS_OBJECT_IDS)
-						printf(", OBJECT_ID");
-					if (flags & 0x01000000) // FILE_SUPPORTS_OPEN_BY_FILE_ID
-						printf(", OPEN_BY_FILE_ID");
-					if (flags & FILE_SUPPORTS_REPARSE_POINTS)
-						printf(", REPARSE_POINTS");
-					if (flags & FILE_SUPPORTS_SPARSE_FILES)
-						printf(", SPARSE_FILES");
-					if (flags & FILE_SUPPORTS_TRANSACTIONS)
-						printf(", TRANSACTIONS");
-					if (flags & 0x02000000) // FILE_SUPPORTS_USN_JOURNAL
-						printf(", USN_JOURNAL");
-					if (flags & FILE_UNICODE_ON_DISK)
-						printf(", UNICODE");
-					if (flags & FILE_FILE_COMPRESSION) {
-						if (flags & FILE_VOLUME_IS_COMPRESSED)
-							printf(", COMPRESSED");
-						else
-							printf(", COMPRESSION");
-					}
-					if (flags & FILE_VOLUME_QUOTAS)
-						printf(", QUOTAS");
-					if (flags & 0x20000000) // FILE_DAX_VOLUME, added in Windows 10
-						printf(", DAX");
-				}
-			} else { // NO FEATURES, PRINT SIZES
-				switch (GetDriveTypeA(cast(char*)cdp)) { // Lazy alert
-				default: printf("UNKNOWN  "); break; // 0+1
-				case 2:  printf("Removable"); break;
-				case 3:  printf("Fixed    "); break;
-				case 4:  printf("Network  "); break;
-				case 5:  printf("Optical  "); break;
-				case 6:  printf("RAM      "); break;
-				}
+		const char cd = getDrive(n);
+		printf("%c:     ", cd);
+		cdp[0] = cd;
 
-				__gshared ULARGE_INTEGER fb, tb, tfb;
-				if (GetDiskFreeSpaceExA(cast(char*)cdp, &fb, &tb, &tfb)) {
-					_printfd(tb.QuadPart - tfb.QuadPart);
-					_printfd(tfb.QuadPart);
-					_printfd(tb.QuadPart);
+		switch (feature) {
+		case FEATURE_MISC:
+			ushort[2] serial = void;
+			DWORD maxcomp = void;
+			if (GetVolumeInformationA(cast(char*)cdp, PCNULL, 0,
+				cast(uint*)&serial, &maxcomp, PINULL, PCNULL, 0)) {
+				printf("%04X-%04X  %8d  \n", serial[1], serial[0], maxcomp);
+			} else fputs("\n", stdout);
+			break;
+		case FEATURE_FEATURES:
+			DWORD flags = void;
+			if (GetVolumeInformationA(cast(char*)cdp, PCNULL, PINULL, PINULL, PINULL,
+				&flags, PCNULL, 0)) {
+				if (flags & FILE_CASE_SENSITIVE_SEARCH)
+					printf(", CASE_SENSITIVE_SEARCH");
+				if (flags & FILE_CASE_PRESERVED_NAMES)
+					printf(", CASE_PRESERVED_NAMES");
+				if (flags & FILE_PERSISTENT_ACLS)
+					printf(", PERSISTENT_ACLS");
+				if (flags & FILE_READ_ONLY_VOLUME)
+					printf(", READ_ONLY");
+				if (flags & FILE_NAMED_STREAMS)
+					printf(", NAMED_STREAMS");
+				if (flags & FILE_SEQUENTIAL_WRITE_ONCE)
+					printf(", SEQ_WRITE_ONCE");
+				if (flags & FILE_SUPPORTS_EXTENDED_ATTRIBUTES)
+					printf(", EXTENDED_ATTRIBUTES");
+				if (flags & FILE_SUPPORTS_ENCRYPTION)
+					printf(", ENCRYPTION");
+				if (flags & 0x00400000) // FILE_SUPPORTS_HARD_LINKS
+					printf(", HARD_LINKS");
+				if (flags & FILE_SUPPORTS_OBJECT_IDS)
+					printf(", OBJECT_ID");
+				if (flags & 0x01000000) // FILE_SUPPORTS_OPEN_BY_FILE_ID
+					printf(", OPEN_BY_FILE_ID");
+				if (flags & FILE_SUPPORTS_REPARSE_POINTS)
+					printf(", REPARSE_POINTS");
+				if (flags & FILE_SUPPORTS_SPARSE_FILES)
+					printf(", SPARSE_FILES");
+				if (flags & FILE_SUPPORTS_TRANSACTIONS)
+					printf(", TRANSACTIONS");
+				if (flags & 0x02000000) // FILE_SUPPORTS_USN_JOURNAL
+					printf(", USN_JOURNAL");
+				if (flags & FILE_UNICODE_ON_DISK)
+					printf(", UNICODE");
+				if (flags & FILE_FILE_COMPRESSION) {
+					if (flags & FILE_VOLUME_IS_COMPRESSED)
+						printf(", COMPRESSED");
+					else
+						printf(", COMPRESSION");
 				}
-
-				ubyte[128] vol, fs; // or memset+__gshared
-				if (GetVolumeInformationA(
-						cast(char*)cdp, cast(char*)vol, vol.sizeof,
-						NULL, NULL, NULL, cast(char*)fs, fs.sizeof)) {
-					printf("  %-7s %s", cast(char*)fs, cast(char*)vol);
-				}
+				if (flags & FILE_VOLUME_QUOTAS)
+					printf(", QUOTAS");
+				if (flags & FILE_DAX_VOLUME) // Added in Windows 10
+					printf(", DAX");
+			}
+			fputs("\n", stdout);
+			break;
+		case FEATURE_POURCENTAGE:
+			ubyte p_fb = void, p_tb = void;
+			ULARGE_INTEGER fb = void, total = void, free = void;
+			if (GetDiskFreeSpaceExA(cast(char*)cdp, &fb, &total, &free)) {
+				ulong used = total.QuadPart - free.QuadPart;
+				p_tb = cast(ubyte) // used
+					((used * POURCENTAGE_INNER_WIDTH) / total.QuadPart);
+				p_fb = cast(ubyte) // free
+					(((free.QuadPart * POURCENTAGE_INNER_WIDTH) / total.QuadPart) + 1);
+				putchar('[');
+				while (--p_tb) { putchar('='); }
+				while (--p_fb) { putchar(' '); }
+				printf("] %d%%\n", cast(uint)((used * 100) / total.QuadPart));
+			} else printf("\n");
+			break;
+		default:
+			switch (GetDriveTypeA(cast(char*)cdp)) { // Lazy alert
+			default:	puts("UNKNOWN  "); continue; // 0+1
+			case 2:	printf("Removable"); break;
+			case 3:	printf("Fixed    "); break;
+			case 4:	printf("Network  "); break;
+			case 5:	printf("Optical  "); break;
+			case 6:	printf("RAM      "); break;
 			}
 
-			fputs("\n", stdout);
-		} // if (n)
+			ULARGE_INTEGER dfb = void, dtotal = void, dfree = void;
+			if (GetDiskFreeSpaceExA(cast(char*)cdp, &dfb, &dtotal, &dfree)) {
+				_printfd(dtotal.QuadPart - dfree.QuadPart);
+				_printfd(dfree.QuadPart);
+				_printfd(dtotal.QuadPart);
+			}
+
+			ubyte[128] vol, fs; // inits to 0, char inits to 0xFF
+			if (GetVolumeInformationA(
+				cast(char*)cdp, cast(char*)vol, vol.sizeof,
+				NULL, NULL, NULL, cast(char*)fs, fs.sizeof)) {
+				printf("  %-7s %s\n", cast(char*)fs, cast(char*)vol);
+			} else printf("\n");
+		}
+
 	} // for
 
 	return 0;
@@ -178,7 +229,7 @@ enum : float { // for _printfd function
 // lazy formatter with spacing
 extern (C)
 private void _printfd(ulong l) {
-	const float f = l; // like those implicit conversions?
+	const float f = l;
 	if (base10) {
 		if (l >= TiB) {
 			printf("%8.2fTi", f / TiB);
@@ -210,7 +261,7 @@ private void _printfd(ulong l) {
  * Returns: Windows drive letter
  */
 extern (C)
-char getDrive(uint mask) pure {
+char getDrive(uint mask) pure { // This entire thing is lazy
 	switch (mask) {
 	case 1: return 'A';
 	case 2: return 'B';
