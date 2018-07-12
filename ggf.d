@@ -5,7 +5,7 @@ extern (C)
 int putchar(int c);
 
 enum
-	PROJECT_VER  = "0.1.0",
+	PROJECT_VER  = "0.2.0",
 	PCNULL = cast(char*)0,	/// Character Pointer NULL constant
 	PINULL = cast(uint*)0;	/// Integer Pointer NULL constant
 
@@ -22,7 +22,8 @@ OPTIONS
 -P	View usage by progress-bar style.
 -F	View features.
 -M	View misc. features (serial and maximum size of path)
--b    Use base10 size formatting`
+-b    Use base10 size formatting
+-n    Remove header`
 	);
 }
 
@@ -55,7 +56,8 @@ enum
 extern (C)
 private int main(int argc, char** argv) {
 	ubyte feature; // FEATURE_DEFAULT
-	char drive = 0;
+	ubyte header = 1;
+	int drive;
 
 	while (--argc >= 1) {
 		char c = argv[argc][0];
@@ -63,9 +65,10 @@ private int main(int argc, char** argv) {
 			char* a = argv[argc];
 			while (*++a != '\0') {
 				switch (*a) {
-				case 'h': help; return 0;
+				case 'h', '?': help; return 0;
 				case 'v': version_; return 0;
 				case 'b': ++base10; break;
+				case 'n': header = 0; break;
 				case 'F': feature = FEATURE_FEATURES; break;
 				case 'P': feature = FEATURE_POURCENTAGE; break;
 				case 'M': feature = FEATURE_MISC; break;
@@ -77,20 +80,27 @@ private int main(int argc, char** argv) {
 		} else if (c >= 'A' && c <= 'Z') {
 			drive = c;
 		} else if (c >= 'a' && c <= 'z') {
-			drive = cast(char)(c - 32);
+			drive = c - 32;
 		}
 	}
 
 	// Empty optical drives in XP shows a windows when an error occurs
 	SetErrorMode(SEM_FAILCRITICALERRORS);
-	const DWORD drives = GetLogicalDrives;
+	DWORD drives = void;
+	uint d = void;
 
-	if (drives == 0) {
-		puts("ERROR: No drives found.");
-		return 2;
+	if (drive) {
+		d = drives = getMask(drive);
+	} else {
+		d = 1;
+		drives = GetLogicalDrives;
+		if (drives == 0) {
+			puts("ERROR: No drives found.");
+			return 2;
+		}
 	}
 
-	switch (feature) {
+	if (header) switch (feature) {
 	case FEATURE_MISC:
 		puts("DRIVE  SERIAL     MAX PATH");
 		break;
@@ -105,7 +115,7 @@ private int main(int argc, char** argv) {
 	}
 
 	char[3] cdp = ` :\`; /// buffer
-	for (uint d = 1; d <= drives; d <<= 1) {
+	for (; d <= drives; d <<= 1) {
 		const uint n = drives & d;
 
 		if (n == 0) continue;
@@ -211,7 +221,6 @@ private int main(int argc, char** argv) {
 				printf("  %-7s %s\n", cast(char*)fs, cast(char*)vol);
 			} else printf("\n");
 		}
-
 	} // for
 
 	return 0;
@@ -292,5 +301,38 @@ char getDrive(uint mask) pure { // This entire thing is lazy
 	case 16777216: return 'Y';
 	case 33554432: return 'Z';
 	default: return '?';
+	}
+}
+
+extern (C)
+int getMask(int drive) pure { // This entire thing is lazy
+	switch (drive) {
+	case 'A': return 1;
+	case 'B': return 2;
+	case 'C': return 4;
+	case 'D': return 8;
+	case 'E': return 16;
+	case 'F': return 32;
+	case 'G': return 64;
+	case 'H': return 128;
+	case 'I': return 256;
+	case 'J': return 512;
+	case 'K': return 1024;
+	case 'L': return 2048;
+	case 'M': return 4096;
+	case 'N': return 8192;
+	case 'O': return 16384;
+	case 'P': return 32768;
+	case 'Q': return 65536;
+	case 'R': return 131072;
+	case 'S': return 262144;
+	case 'T': return 524288;
+	case 'U': return 1048576;
+	case 'V': return 2097152;
+	case 'W': return 4194304;
+	case 'X': return 8388608;
+	case 'Y': return 16777216;
+	case 'Z': return 33554432;
+	default: return 00;
 	}
 }
