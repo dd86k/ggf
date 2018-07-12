@@ -4,18 +4,6 @@ import core.stdc.stdio : printf, puts, fputs, stdout;
 extern (C)
 int putchar(int c);
 
-/*
- * MSDN
- * GetVolumeInformation
- * https://msdn.microsoft.com/en-us/library/windows/desktop/aa364993(v=vs.85).aspx
- */
-
-/* SWITCHES
-	-b : Use base 10 sizes
-	-f : Features page (flags)
-	-s : Serial, max component length
-*/
-
 enum
 	PROJECT_VER  = "0.1.0",
 	PCNULL = cast(char*)0,	/// Character Pointer NULL constant
@@ -26,14 +14,15 @@ void help() {
     puts(
 `Get disk(s) information.
   Usage: ggf [OPTIONS]
-         ggf {-h|-v|/?}
+         ggf {-h|-v|-?}
 
 By default, view disk usage by size.
 
 OPTIONS
 -P	View usage by progress-bar style.
 -F	View features.
--M	View misc. features (serial and maximum size of path)`
+-M	View misc. features (serial and maximum size of path)
+-b    Use base10 size formatting`
 	);
 }
 
@@ -66,9 +55,11 @@ enum
 extern (C)
 private int main(int argc, char** argv) {
 	ubyte feature; // FEATURE_DEFAULT
+	char drive = 0;
 
 	while (--argc >= 1) {
-		if (argv[argc][0] == '-') {
+		char c = argv[argc][0];
+		if (c == '-') {
 			char* a = argv[argc];
 			while (*++a != '\0') {
 				switch (*a) {
@@ -83,6 +74,10 @@ private int main(int argc, char** argv) {
 					return 1;
 				}
 			}
+		} else if (c >= 'A' && c <= 'Z') {
+			drive = c;
+		} else if (c >= 'a' && c <= 'z') {
+			drive = cast(char)(c - 32);
 		}
 	}
 
