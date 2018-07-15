@@ -1,8 +1,8 @@
 # ggf - Windows disk information tool
 
-A lazily-written, df-like, Windows disk information tool.
+A small, lazily-written, df-like, Windows disk information tool.
 
-For base 10 reports, use `-b`.
+Only the DMD compiler is supported.
 
 # Examples
 
