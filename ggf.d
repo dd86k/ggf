@@ -133,7 +133,7 @@ private int main(int argc, char** argv) {
 			DWORD maxcomp = void;
 			if (GetVolumeInformationA(cast(char*)cdp, PCNULL, 0,
 				cast(uint*)&serial, &maxcomp, PINULL, PCNULL, 0)) {
-				printf("%04X-%04X  %8d  \n", serial[1], serial[0], maxcomp);
+				printf("%04X-%04X  %8d\n", serial[1], serial[0], maxcomp);
 			} else putchar('\n');
 			continue;
 		case FEATURE_FEATURES:
