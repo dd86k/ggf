@@ -18,9 +18,9 @@ void help() {
 By default, view disk usage by size.
 
 OPTIONS
--P	View usage by progress-bar style.
--F	View features.
--M	View misc. features (serial and maximum size of path)
+-P	View usage by progress-bar style
+-F	View features
+-M	View misc. features (serial, MAX_PATH)
 -b	Use base10 size formatting
 -n	Remove header`
 	);
@@ -33,16 +33,17 @@ void version_() {
 MIT License: Copyright (c) 2017-2018 dd86k
 Project page: <https://github.com/dd86k/ggf>
 Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n",
-		__VERSION__);
+		__VERSION__
+	);
 }
 
 __gshared byte base10; /// Use base10 notation
 
-enum : ubyte {
+enum {
 	FEATURE_DEFAULT, // sizes/usage
 	FEATURE_POURCENTAGE, // usage%
 	FEATURE_FEATURES, // features
-	FEATURE_MISC, // serial+max path
+	FEATURE_MISC // serial+max path
 }
 
 enum
@@ -89,10 +90,12 @@ private int main(int argc, char** argv) {
 	// Empty optical drives in XP shows a windows when an error occurs
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 	DWORD drives = void;
-	uint d = void;
+	uint d = void, /// bit mask to use against drives
+		count = void; /// disk count, avoids using big switches
 
 	if (drive) {
 		d = drives = getMask(drive);
+		count = drive - 0x41;
 	} else {
 		d = 1;
 		drives = GetLogicalDrives;
@@ -118,12 +121,13 @@ private int main(int argc, char** argv) {
 		}
 
 	char[3] cdp = ` :\`; /// buffer
-	for (; d <= drives; d <<= 1) {
+	for (; d <= drives; d <<= 1, ++count) {
 		const uint n = drives & d;
 
 		if (n == 0) continue;
 
-		const char cd = getDrive(n);
+		//const char cd = getDrive(n);
+		const char cd = getDrive(count);
 		cdp[0] = cd;
 		printf("%c:     ", cd);
 
@@ -271,72 +275,21 @@ private void _printfd(ulong l) {
 }
 
 /**
- * Cheapest way to get a drive letter by computed mask
- * Params: mask = Drive mask (Windows)
- * Returns: Windows drive letter
+ * Converts a drive number to a drive letter
+ * Params: drive = driver number
+ * Returns: drive letter
  */
 extern (C)
-char getDrive(uint mask) pure { // This entire thing is lazy
-	switch (mask) {
-	case 1: return 'A';
-	case 2: return 'B';
-	case 4: return 'C';
-	case 8: return 'D';
-	case 16: return 'E';
-	case 32: return 'F';
-	case 64: return 'G';
-	case 128: return 'H';
-	case 256: return 'I';
-	case 512: return 'J';
-	case 1024: return 'K';
-	case 2048: return 'L';
-	case 4096: return 'M';
-	case 8192: return 'N';
-	case 16384: return 'O';
-	case 32768: return 'P';
-	case 65536: return 'Q';
-	case 131072: return 'R';
-	case 262144: return 'S';
-	case 524288: return 'T';
-	case 1048576: return 'U';
-	case 2097152: return 'V';
-	case 4194304: return 'W';
-	case 8388608: return 'X';
-	case 16777216: return 'Y';
-	case 33554432: return 'Z';
-	default: return '?';
-	}
+char getDrive(int d) pure {
+	return cast(char)(0x41 + d);
 }
 
+/**
+ * Converts a drive letter to a mask
+ * Params: drive = Drive letter
+ * Returns: Windows drive mask
+ */
 extern (C)
-int getMask(int drive) pure { // This entire thing is lazy
-	switch (drive) {
-	case 'A': return 1;
-	case 'B': return 2;
-	case 'C': return 4;
-	case 'D': return 8;
-	case 'E': return 16;
-	case 'F': return 32;
-	case 'G': return 64;
-	case 'H': return 128;
-	case 'I': return 256;
-	case 'J': return 512;
-	case 'K': return 1024;
-	case 'L': return 2048;
-	case 'M': return 4096;
-	case 'N': return 8192;
-	case 'O': return 16384;
-	case 'P': return 32768;
-	case 'Q': return 65536;
-	case 'R': return 131072;
-	case 'S': return 262144;
-	case 'T': return 524288;
-	case 'U': return 1048576;
-	case 'V': return 2097152;
-	case 'W': return 4194304;
-	case 'X': return 8388608;
-	case 'Y': return 16777216;
-	case 'Z': return 33554432;
-	default: return 0;
-	}
+int getMask(int drive) pure {
+	return (1 << (drive - 0x41));
 }
