@@ -2,9 +2,7 @@
 
 A small, lazily-written, df-like, Windows disk information tool.
 
-Only the DMD compiler is supported.
-
-# Examples
+## Examples
 
 ```
 D:\>ggf
