@@ -1,6 +1,8 @@
 import core.sys.windows.windows;
 import core.stdc.stdio : printf, puts;
+import core.stdc.string : strcmp;
 
+__gshared:
 extern (C):
 
 int putchar(int c);
@@ -8,10 +10,10 @@ int putchar(int c);
 enum PROJECT_VER  = "0.2.2";
 
 enum : ubyte {
-	FEATURE_DEFAULT, // sizes/usage
-	FEATURE_POURCENTAGE, // usage%
-	FEATURE_FEATURES, // features
-	FEATURE_MISC // serial+max path
+	FEATURE_DEFAULT,	// sizes/usage
+	FEATURE_POURCENTAGE,	// usage%
+	FEATURE_FEATURES,	// features
+	FEATURE_MISC	// serial+max path
 }
 
 enum
@@ -41,10 +43,10 @@ OPTIONS
 void version_() {
 	printf(
 `ggf v` ~ PROJECT_VER~ `  (` ~ __TIMESTAMP__ ~ `)
-MIT License: Copyright (c) 2017-2019 dd86k
+MIT License: Copyright (c) 2017-2020 dd86k
 Project page: <https://github.com/dd86k/ggf>
 Compiled `~__FILE__~` with `~__VENDOR__~" v%d\n",
-		__VERSION__
+		cast(uint)__VERSION__
 	);
 }
 
@@ -83,57 +85,59 @@ int main(int argc, char** argv) {
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 
 	DWORD drives = void;
-	uint d = void; /// bit mask to use against drives
-	uint count = void; /// disk count, avoids using big switches
+	uint disk_mask = void; /// bit mask to use against drives
+	uint disk_count = void; /// disk disk_count, avoids using big switches
 
 	if (drive) {
-		d = drives = getMask(drive);
-		count = drive - 0x41;
+		disk_mask = drives = getMask(drive);
+		disk_count = drive - 0x41;
 	} else {
-		d = 1; count = 0;
-		drives = GetLogicalDrives;
+		disk_mask = 1; disk_count = 0;
+		drives = GetLogicalDrives();
 		if (drives == 0) {
 			puts("ERROR: No drives found.");
 			return 2;
 		}
 	}
 
-	int swidth = void; /// screen width for %
+	int scr_width = void;	/// screen width for %
 
 	if (feature == FEATURE_POURCENTAGE) {
 		CONSOLE_SCREEN_BUFFER_INFO csbi = void;
 		HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
 		GetConsoleScreenBufferInfo(hOut, &csbi);
-		swidth = csbi.srWindow.Right - csbi.srWindow.Left - 15; // 14 char buf
+		scr_width = csbi.srWindow.Right - csbi.srWindow.Left - 14;
 	}
 
-	if (header) switch (feature) {
-	case FEATURE_DEFAULT:
-		puts("DRIVE  TYPE           USED      FREE     TOTAL  TYPE    NAME");
-		break;
-	case FEATURE_MISC:
-		puts("DRIVE  SERIAL     MAX PATH");
-		break;
-	case FEATURE_FEATURES:
-		puts("DRIVE  FEATURES");
-		break;
-	case FEATURE_POURCENTAGE:
-		puts("DRIVE  USAGE");
-		break;
-	default:
-		puts("Unknown feature selected");
-		return 1;
+	if (header) {
+		switch (feature) {
+		case FEATURE_DEFAULT:
+			puts("DRIVE  TYPE            USED       FREE      TOTAL  TYPE    NAME");
+			break;
+		case FEATURE_MISC:
+			puts("DRIVE  SERIAL     MAX PATH");
+			break;
+		case FEATURE_FEATURES:
+			puts("DRIVE  FEATURES");
+			break;
+		case FEATURE_POURCENTAGE:
+			puts("DRIVE  USAGE");
+			break;
+		default:
+			puts("Unknown feature selected");
+			return 1;
+		}
 	}
 
-	char [3]cd = ` :\`; // buffer
+	char [4]cd = ` :\`; // buffer
 	char *cdp = cast(char*)cd;
 
-	for (; d <= drives; d <<= 1, ++count) {
-		const uint n = drives & d;
+	for (; disk_mask <= drives; disk_mask <<= 1, ++disk_count) {
+		const uint n = drives & disk_mask;
 
 		if (n == 0) continue;
 
-		const char c = getDrive(count);
+		const char c = getDrive(disk_count);
 		cd[0] = c;
 		printf("%c:     ", c);
 
@@ -156,9 +160,12 @@ int main(int argc, char** argv) {
 			}
 
 			ubyte [256]vol, fs; // inits to 0, char inits to 0xFF
-			if (GetVolumeInformationA(cdp, cast(char*)vol, vol.length,
-				NULL, NULL, NULL, cast(char*)fs, fs.length)) {
-				printf("  %-7s %s\n", cast(char*)fs, cast(char*)vol);
+			if (GetVolumeInformationA(cdp,
+				cast(char*)vol, vol.length,
+				NULL, NULL, NULL,
+				cast(char*)fs, fs.length)) {
+				printf("  %-7s %s\n",
+					cast(char*)fs, cast(char*)vol);
 			} else putchar('\n');
 			continue;
 		case FEATURE_FEATURES:
@@ -212,15 +219,15 @@ FEATURES_END:
 			ULARGE_INTEGER fb = void, total = void, free = void;
 			if (GetDiskFreeSpaceExA(cdp, &fb, &total, &free)) {
 				const ulong used = total.QuadPart - free.QuadPart;
-				ubyte p_ub = cast(ubyte) // used
-					((used * swidth) / total.QuadPart);
-				ubyte p_fb = cast(ubyte) // free
-					((free.QuadPart * swidth) /
+				ushort p_ub = cast(ushort) // used
+					((used * scr_width) / total.QuadPart);
+				ushort p_fb = cast(ushort) // free
+					((free.QuadPart * scr_width) /
 					total.QuadPart);
 				putchar('[');
 				while (--p_ub) putchar('=');
 				while (--p_fb) putchar(' ');
-				printf("] %4.2f%%\n",
+				printf("] %4.1f%%\n",
 					((cast(float)used * 100) / total.QuadPart));
 			} else putchar('\n');
 			continue;
@@ -255,32 +262,32 @@ private void _printfd(ulong l, bool base10 = false) {
 	const float f = l;
 	if (base10) {
 		if (l >= TiB) {
-			printf("%8.2fTi", f / TiB);
+			printf("%8.2f Ti", f / TiB);
 		} else if (l >= GiB) {
-			printf("%8.2fGi", f / GiB);
+			printf("%8.2f Gi", f / GiB);
 		} else if (l >= MiB) {
-			printf("%8.2fMi", f / MiB);
+			printf("%8.2f Mi", f / MiB);
 		} else if (l >= KiB) {
-			printf("%8.2fKi", f / KiB);
+			printf("%8.2f Ki", f / KiB);
 		} else
-			printf("%9llB", l);
+			printf("%9llu B", l);
 	} else {
 		if (l >= TB) {
-			printf("%9.2fT", f / TB);
+			printf("%9.2f T", f / TB);
 		} else if (l >= GB) {
-			printf("%9.2fG", f / GB);
+			printf("%9.2f G", f / GB);
 		} else if (l >= MB) {
-			printf("%9.2fM", f / MB);
+			printf("%9.2f M", f / MB);
 		} else if (l >= KB) {
-			printf("%9.2fK", f / KB);
+			printf("%9.2f K", f / KB);
 		} else
-			printf("%9llB", l);
+			printf("%9llu B", l);
 	}
 }
 
 /**
  * Converts a drive number to a drive letter
- * Params: drive = driver number (starting at 0)
+ * Params: d = driver number (starting at 0)
  * Returns: drive letter
  */
 char getDrive(int d) pure {
